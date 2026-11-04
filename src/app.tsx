@@ -30,5 +30,12 @@ export function createApp(config: RigConfig = loadConfig()) {
     );
   });
 
+  // Same readNight as the page, so the page and the JSON never disagree (ADR 0001).
+  app.get('/api/digest/:night', (c) => {
+    const night = readNight(config.runsDir, c.req.param('night'));
+    if (night === null) return c.json({ error: 'no such night', night: c.req.param('night') }, 404);
+    return c.json(night);
+  });
+
   return app;
 }
