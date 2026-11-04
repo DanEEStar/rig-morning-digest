@@ -21,7 +21,7 @@ describe('readNight', () => {
   it('counts runs and retries per job, and keeps the last status', () => {
     const night = readNight('runs', '2026-10-28');
     const fixtures = night?.rows.find((r) => r.job === 'fixtures/refresh');
-    expect(fixtures).toMatchObject({ runs: 4, retries: 3, lastStatus: 'ok' });
+    expect(fixtures).toMatchObject({ runs: 4, retries: 3, lastStatus: 'ok', lastError: 'upstream 503' });
 
     const sync = night?.rows.find((r) => r.job === 'lane/sync');
     expect(sync).toMatchObject({ runs: 8, retries: 1, lastStatus: 'ok' });
@@ -59,5 +59,15 @@ describe('readNight', () => {
     const night = readNight(dir, '2026-01-03');
     expect(night?.rows.map((r) => r.job)).toEqual(['a', 'b']);
     expect(night?.badLines).toBe(1);
+  });
+
+  it('keeps the last error a job reported, even when a later run is clean', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rig-runs-'));
+    writeFileSync(
+      join(dir, '2026-01-04.jsonl'),
+      '{"at":"2026-01-04T01:00:00+01:00","job":"a","status":"ok","owner":"rook"}\n{"at":"2026-01-04T02:00:00+01:00","job":"a","status":"retry","owner":"rook","error":"lock held"}\n{"at":"2026-01-04T03:00:00+01:00","job":"a","status":"ok","owner":"rook"}\n',
+    );
+    const row = readNight(dir, '2026-01-04')?.rows[0];
+    expect(row).toMatchObject({ runs: 3, retries: 1, lastStatus: 'ok', lastError: 'lock held' });
   });
 });

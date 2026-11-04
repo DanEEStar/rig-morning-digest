@@ -41,6 +41,7 @@ export const readNight: ReadNight = (runsDir, night) => {
   }
 
   const byJob = new Map<string, DigestRow>();
+  const lastErrorAt = new Map<string, string>();
   let badLines = 0;
 
   for (const line of text.split('\n')) {
@@ -62,6 +63,7 @@ export const readNight: ReadNight = (runsDir, night) => {
         first: parsed.at,
         last: parsed.at,
       });
+      if (parsed.error !== null) lastErrorAt.set(parsed.job, parsed.at);
       continue;
     }
     row.runs++;
@@ -71,9 +73,11 @@ export const readNight: ReadNight = (runsDir, night) => {
     if (parsed.at >= row.last) {
       row.last = parsed.at;
       row.lastStatus = parsed.status;
+    }
+    // Last error = the most recent error the job reported, so a later clean run does not hide it.
+    if (parsed.error !== null && parsed.at >= (lastErrorAt.get(parsed.job) ?? '')) {
       row.lastError = parsed.error;
-    } else if (parsed.error !== null && row.lastError === null) {
-      row.lastError = parsed.error;
+      lastErrorAt.set(parsed.job, parsed.at);
     }
   }
 
